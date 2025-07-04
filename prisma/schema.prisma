@@ -1,0 +1,125 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  
+  budgets      Budget[]
+  transactions Transaction[]
+  creditCards  CreditCard[]
+  accounts     Account[]
+  sessions     Session[]
+}
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Budget {
+  id          String   @id @default(uuid())
+  userId      String
+  month       Int
+  year        Int
+  income      Decimal
+  fixedExpenses Decimal
+  
+  categories  BudgetCategory[]
+  user        User     @relation(fields: [userId], references: [id])
+  
+  @@unique([userId, month, year])
+}
+
+model BudgetCategory {
+  id          String   @id @default(uuid())
+  budgetId    String
+  name        String
+  planned     Decimal
+  spent       Decimal  @default(0)
+  type        CategoryType
+  
+  budget      Budget   @relation(fields: [budgetId], references: [id])
+  transactions Transaction[]
+}
+
+model CreditCard {
+  id          String   @id @default(uuid())
+  userId      String
+  name        String
+  limit       Decimal
+  dueDay      Int
+  
+  user        User     @relation(fields: [userId], references: [id])
+  transactions Transaction[]
+  installments Installment[]
+}
+
+model Transaction {
+  id            String   @id @default(uuid())
+  userId        String
+  categoryId    String
+  creditCardId  String
+  amount        Decimal
+  description   String
+  date          DateTime
+  installments  Int      @default(1)
+  
+  user          User     @relation(fields: [userId], references: [id])
+  category      BudgetCategory @relation(fields: [categoryId], references: [id])
+  creditCard    CreditCard @relation(fields: [creditCardId], references: [id])
+}
+
+model Installment {
+  id            String   @id @default(uuid())
+  creditCardId  String
+  description   String
+  amount        Decimal
+  currentMonth  Int
+  totalMonths   Int
+  startDate     DateTime
+  
+  creditCard    CreditCard @relation(fields: [creditCardId], references: [id])
+}
+
+enum CategoryType {
+  ESSENTIAL
+  LIFESTYLE
+  EMERGENCY
+}
